@@ -1,5 +1,5 @@
 /* ==========================================
- * Asynchronous SiteCatalyst v1.0
+ * Asynchronous SiteCatalyst v0.1
  * http://github.com/DieProduktMacher/asyncSC
  * ==========================================
  * Copyright:
@@ -268,7 +268,7 @@ _asc.addTracker('SiteCatalyst', (function(){
 		sLocal = {};  // clear local object
 		
 		var svar = window[to_return.config['sVariable']];
-		for(var i = 75; i--; ){
+		for(var i = 76; i--; ){
 			delete svar['prop'+i];
 			delete svar['eVar'+i];
 			delete svar['hier'+i];
