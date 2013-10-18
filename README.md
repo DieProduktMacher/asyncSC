@@ -154,9 +154,17 @@ _asc.push(['trackClick', 'click name']);
 
 ## Additional features
 
+### NEW Load additional external scripts
+It is now possible to load additional external scripts. The scripts are executed after s_code.js is loaded but before any tracking call (page view, click, ...) is made.
+
+```javascript
+// load an external script
+_asc.push(['loadScript', '/path-to-script/scriptname.js']);
+```
+
 ### Disable Tracking
 
-It is possible to completely disably the tracking on individual pages. 
+It is possible to completely disable the tracking on individual pages. 
 
 ```javascript
 // disable tracking for all following requests
