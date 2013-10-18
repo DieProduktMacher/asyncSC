@@ -1,5 +1,5 @@
 /* ==========================================
- * Asynchronous SiteCatalyst v0.1
+ * Asynchronous SiteCatalyst v0.2
  * http://github.com/DieProduktMacher/asyncSC
  * ==========================================
  * Copyright:
@@ -150,7 +150,7 @@ _asc = (function(asc){
 	////////////////////////////
 	var Tracker = function(tracker){
 		this.tracker = tracker;  // the tracker object
-		this.queue = [];  // individual queue for each tracker
+		this.index = 0;  // individual index of position in global queue
 		var that = this;
 		
 		/**
@@ -160,36 +160,38 @@ _asc = (function(asc){
 		 *
 		 * @param (optional) queue an array of tasks
 		 */
-		var performTask = function(queue){
-			queue = queue || that.queue;
+		var performTask = function(){
+			//queue = queue || that.queue;
 			var currentTask, currentTracker, currentRequirements;
-			if (currentTask = queue.shift()) {  // "=" is correct
-				if (typeof that.tracker[currentTask[0]] != 'undefined'){
+			if (that.index < queue.length) {
+			  currentTask = queue[that.index];
+			  that.index++;
+				if (typeof that.tracker[currentTask[0]] != 'undefined'){  // supported api function?
 					currentTracker = that.tracker[currentTask[0]];
-					if (currentTracker.length > 1) {  // There are some requirements
+					if (currentTracker.length > 1) {  // there are some requirements
+					  that.workQueue = function(){};  // if external scripts contain _asc calls the task order breaks
 						currentRequirements = currentTracker.slice(1);
 						require.call(that, currentRequirements, 
 							function(){
+							  that.workQueue = function(){performTask();};  // restore
 								currentTracker[0].apply(that, currentTask.slice(1));
-								performTask(queue);
+								performTask();  // recusively call performTask
 							}
 						);
 					} else {
 						currentTracker[0].apply(that, currentTask.slice(1));
-						performTask(queue);
+						performTask();  // recusively call performTask
 					}
 				}
 			}	
 		};
 		/**
-		 * Add a task to the tracker queue
+		 * Run the next task for this tracker
 		 */
-		this.push = function(){
-			for(var i = 0, l = arguments.length; i < l; i++){
-				that.queue.push(arguments[i]);
-			}
-			performTask(that.queue);
+		this.workQueue = function(){
+			performTask();
 		};
+		performTask();
 	};
 	
 	/**
@@ -200,8 +202,8 @@ _asc = (function(asc){
 	 */
 	to_return.addTracker = function(name, tracker){
 		loadedTrackers[name] = new Tracker(tracker);
-		loadedTrackers[name].push.apply(loadedTrackers[name], queue);
-		queue = [];
+		//loadedTrackers[name].push.apply(loadedTrackers[name], queue);
+		//queue = [];
 	};
 	/*
 	 * Function to send any tasks to the queue. The tasks are routed to the trackers afterwards
@@ -211,9 +213,10 @@ _asc = (function(asc){
 			queue.push(arguments[i]);
 		}
 		for(var t in loadedTrackers){
-			loadedTrackers[t].push.apply(loadedTrackers[t], queue);
+			//loadedTrackers[t].push.apply(loadedTrackers[t], queue);
+			loadedTrackers[t].workQueue.apply(loadedTrackers[t]);
 		}
-		queue = [];
+		//queue = [];
 	};
 	return to_return;
 })(_asc || []);
@@ -224,6 +227,8 @@ _asc = (function(asc){
 _asc.addTracker('SiteCatalyst', (function(){
 	var sLocal = {};  // Store all SC Variables
 	var that = this;  // For later reference 
+	var additionalScripts = false;  // contains the next script to be loaded
+	
 	
 	//////////////////////
 	// S C  H E L P E R //
@@ -306,7 +311,11 @@ _asc.addTracker('SiteCatalyst', (function(){
 				var svar = window[to_return.config['sVariable']];
 				svar.sa(to_return.config.account || window['s_account']);
 				callback();
-			}]
+			}],
+			// this requirement can be called multiple times
+			additionalScripts: [true, function(callback){
+				_asc.utils.getScript(additionalScripts, callback);
+			}],
 		},
 		
 		//////////////////////////
@@ -327,7 +336,7 @@ _asc.addTracker('SiteCatalyst', (function(){
 			svar = _asc.utils.mixin(svar, sLocal);
 			svar.t(sLocal);
 			clearSObject();
-		}, 's_code', 'setAccount'],
+		}, 's_code', 'setAccount', 'additionalScripts'],
 		setAccount: [function(rsid){
 			var svar = window[to_return.config['sVariable']] || {};
 			if(to_return.requirements.s_code[0] && typeof svar.sa == 'function'){
@@ -347,7 +356,7 @@ _asc.addTracker('SiteCatalyst', (function(){
 			var arr = [true, 'o', linkName, sLocal];
 			track.apply(that, arr);
 			clearSObject();
-		}, 's_code', 'setAccount'],
+		}, 's_code', 'setAccount', 'additionalScripts'],
 		trackLink: [function(linkName, linkObj){
 			if(to_return.config.disableTracking){return;}
 			var a = linkObj || document.createElement('a');
@@ -355,7 +364,12 @@ _asc.addTracker('SiteCatalyst', (function(){
 			var arr = [a, 'o', linkName, sLocal];
 			track.apply(that, arr);
 			clearSObject();
-		}, 's_code', 'setAccount']
+		}, 's_code', 'setAccount', 'additionalScripts'],
+		// loads scripts in the order given by the api. s_code is loaded first.
+		loadScript: [function(scriptPath){
+		  additionalScripts = scriptPath;
+		  to_return.requirements.additionalScripts[0] = false;
+		},'s_code', 'additionalScripts']
 	};
 	
 	return to_return;
